@@ -1,58 +1,94 @@
-<?php
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title>SimplePHPbenchmark</title>
 
-$numQueries = 10;
-$numIds = 20;
-$queryTable = "text";
-$idColumn = "old_id";
+    <!-- Bootstrap -->
+    <!-- <link rel="stylesheet" href="bootstrap-3.3.5/css/bootstrap.min.css"> -->
 
-$numPhpLoops = 1000000;
+    <!-- Optional theme -->
+    <!-- <link rel="stylesheet" href="bootstrap-3.3.5/css/bootstrap-theme.min.css"> -->
 
-// setup mysql connection
-require_once __DIR__ . '/conf.php';
+    <!-- Application CSS -->
+    <!-- <link rel="stylesheet" href="main.css"> -->
 
-$db = mysql_connect(
-	$conf['host'],
-	$conf['user'],
-	$conf['pass']
-) or die ('Unable to connect. Check you connection parameters.');
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+  <body>
 
-mysql_select_db( $conf['db_name'], $db ) or die( mysql_error( $link ) );
+  	<h1>Simple PHP Benchmark</h1>
 
+  	<table>
+  		<thead>
+  			<tr>
+  				<th>Timestamp</th><th>Request</th><th>Script</th><th>Database</th><th>PHP-intense</th>
+  			</tr>
+  		</thead>
+  		<tbody id="table-body">
 
+  		</tbody>
+  	</table>
 
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+    <script type="text/javascript">
 
-$queryStart = microtime( true );
+    	var queries = 100,
+    		ids = 1000,
+    		loops = 5000000,
+    		period = 15000;
 
-for( $i = 0; $i < $numQueries; $i++ ) {
+    	window.tabularData = '';
 
-	$ids = array();
-	for( $j = 0; $j < $numIds; $j++ ) {
-		$ids[] = rand( 1, 70000 );
-	}
-	$list = implode( ',' , $ids );
+		function getBenchmark () {
 
-	$query = "SELECT * FROM $queryTable WHERE $idColumn IN ($list)";
-	$result = mysql_query( $query, $db ) or die ( mysql_error( $db ) );
+			window.requestStart = (new Date).getTime();
+			var start = new Date();
+			window.timestamp =
+				('0' + start.getUTCHours()).slice(-2) + ":" +
+				('0' + start.getUTCMinutes()).slice(-2) + ":" +
+				('0' + start.getUTCSeconds()).slice(-2);
+			console.log( "sending request..." );
+			$.getJSON(
+				"benchmark.php",
+				{
+					'num_queries' : queries,
+					'num_ids' : ids,
+					'php_loops' : loops
+				},
+				function ( response ) {
+					var d = new Date();
+					var requestLength = ( d.getTime() - window.requestStart ) / 1000;
+					window.requestStart = 0;
 
-}
+					tabularData += window.timestamp + "\t" +
+						requestLength + "\t" +
+						response.script + "\t" +
+						response.database + "\t" +
+						response.php + "\n";
 
-$queryLength = microtime( true ) - $queryStart;
+					$("#table-body").append(
+						"<tr><td>"+window.timestamp+"</td><td>"+requestLength+"</td><td>"+response.script+"</td><td>"+response.database+"</td><td>"+response.php+"</td></tr>"
+					);
 
+				}
+			);
 
+			// repeat this function every X milliseconds
+			setTimeout( getBenchmark, period );
 
-$phpStart = microtime( true );
+		}
 
-for( $k = 0; $k < $numPhpLoops; $k++ ) {
+		getBenchmark();
 
-	$list = sha1( $list );
-
-}
-
-$phpLength = microtime( true ) - $phpStart;
-
-$data = array(
-	"database" => $queryLength,
-	"php" => $phpLength,
-);
-header('Content-Type: application/json');
-echo json_encode($data);
+    </script>
+  </body>
+</html>
